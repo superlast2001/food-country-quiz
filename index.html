@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>World Guess – Passport Quiz</title>
+<style>
+:root{--paper:#f6eedb;--ink:#1f2b4a;--navy:#14315c;--stamp:#b8322f;--gold:#c99a2e;--ok:#2e8b57;--bad:#c0392b}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:Georgia,"Times New Roman",serif;color:var(--ink);
+ background:repeating-linear-gradient(45deg,#14315c 0 22px,#17396b 22px 44px);display:flex;align-items:center;justify-content:center;font-size:clamp(18px,2.2vw,30px)}
+.passport{width:min(96vw,1200px);min-height:90vh;margin:2vh auto;background:var(--paper);border-radius:22px;padding:clamp(16px,3vw,48px);
+ box-shadow:0 10px 40px #0008, inset 0 0 0 6px #e4d6b3, inset 0 0 0 9px var(--gold);position:relative;display:flex;flex-direction:column}
+h1{font-size:2.4em;margin:.2em 0;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);text-align:center}
+h2{font-size:1.6em;margin:.3em 0;color:var(--navy);text-align:center}
+.sub{text-align:center;opacity:.8}
+.screen{display:none;flex:1;flex-direction:column;gap:.6em}.screen.on{display:flex}
+button{font:inherit;cursor:pointer;border:3px solid var(--navy);background:#fff;color:var(--navy);border-radius:14px;padding:.45em .9em;transition:transform .1s}
+button:hover{transform:scale(1.03)}button.primary{background:var(--navy);color:#fff}
+button:disabled{cursor:default;transform:none}
+.row{display:flex;gap:.6em;flex-wrap:wrap;justify-content:center;align-items:center}
+label{font-weight:bold}
+input,select{font:inherit;padding:.25em .5em;border:2px solid var(--navy);border-radius:10px;background:#fff;max-width:100%}
+.card{border:2px dashed var(--navy);border-radius:16px;padding:.8em 1em;background:#fffaf0}
+#fsBtn{position:absolute;top:12px;right:14px;font-size:.7em;padding:.3em .6em}
+.hud{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.4em;font-weight:bold}
+.bar{height:16px;background:#e2d4b0;border-radius:8px;overflow:hidden;border:2px solid var(--navy)}
+.bar>div{height:100%;background:linear-gradient(90deg,var(--gold),var(--stamp));width:0;transition:width .4s}
+#timer{font-size:1.4em;min-width:3.2em;text-align:center;border:4px solid var(--stamp);color:var(--stamp);border-radius:50%;padding:.2em;transform:rotate(-8deg)}
+#timer.low{background:var(--stamp);color:#fff}
+.clueType{text-transform:uppercase;letter-spacing:.15em;color:var(--stamp);font-weight:bold;text-align:center}
+.clue{font-size:1.5em;text-align:center;line-height:1.25;min-height:2.4em;display:flex;align-items:center;justify-content:center}
+.clue.flag{font-size:7em;line-height:1}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:.6em}
+.opts button{font-size:1.15em;padding:.6em;min-height:2.6em}
+.opts button.ok{background:var(--ok);color:#fff;border-color:var(--ok)}
+.opts button.bad{background:var(--bad);color:#fff;border-color:var(--bad)}
+#feedback{text-align:center;font-size:1.3em;min-height:1.5em;font-weight:bold}
+.stamp{display:inline-block;border:4px solid currentColor;padding:.05em .5em;border-radius:8px;transform:rotate(-6deg);text-transform:uppercase}
+.board{display:flex;gap:.5em;flex-wrap:wrap;justify-content:center}
+.team{border:3px solid var(--navy);border-radius:12px;padding:.2em .7em;background:#fff;font-weight:bold}
+.team.cur{background:var(--gold);color:#fff;border-color:var(--gold)}
+.teamBtns{display:flex;flex-wrap:wrap;gap:.5em;justify-content:center}
+#teamInputs input{width:12em}
+@media (max-width:640px){.opts{grid-template-columns:1fr}.clue.flag{font-size:5em}}
+</style></head><body>
+<div class="passport">
+<button id="fsBtn" title="Fullscreen">⛶ Fullscreen</button>
+
+<section id="sTitle" class="screen on">
+ <h1>🌍 World Guess</h1><div class="sub">✈️ Passport to 51 countries — guess the country from its popular food!</div>
+ <div class="card"><div class="row"><label>Mode:</label>
+  <button id="mSolo" class="primary">🧳 Solo</button><button id="mGroup">👥 Group</button></div>
+  <div class="row" style="margin-top:.5em"><label for="tSec">Seconds per question:</label>
+   <input id="tSec" type="number" min="5" max="120" value="15" style="width:4.5em"></div>
+  <div id="groupCfg" style="display:none;margin-top:.5em">
+   <div class="row"><label>Scoring:</label><select id="gStyle">
+    <option value="turns">Teams take turns answering</option><option value="host">Host taps which team got it</option></select></div>
+   <div class="row" style="margin-top:.4em"><label>Teams (2–6):</label>
+    <button id="tMinus">−</button><span id="tCount">2</span><button id="tPlus">+</button></div>
+   <div id="teamInputs" class="row" style="margin-top:.4em"></div>
+  </div></div>
+ <div class="row"><span id="bestLbl"></span></div>
+ <div class="row"><button id="startBtn" class="primary" style="font-size:1.4em">🛫 Start journey</button></div>
+</section>
+
+<section id="sGame" class="screen">
+ <div class="hud"><span id="qNum"></span><span id="scoreLbl"></span><span id="timer">15</span></div>
+ <div class="bar"><div id="prog"></div></div>
+ <div id="board" class="board"></div>
+ <div id="turnLbl" class="sub" style="font-weight:bold"></div>
+ <div id="clueType" class="clueType"></div>
+ <div id="clue" class="clue"></div>
+ <div id="opts" class="opts"></div>
+ <div id="feedback"></div>
+ <div id="hostBox" class="teamBtns" style="display:none"></div>
+ <div class="row"><button id="nextBtn" class="primary" style="display:none">Next destination ➜</button></div>
+</section>
+
+<section id="sEnd" class="screen">
+ <h1 id="endTitle">Journey complete!</h1>
+ <div id="endBody" style="text-align:center"></div>
+ <div class="row"><button id="replayBtn" class="primary" style="font-size:1.3em">🔁 Replay</button><button id="menuBtn">🏠 Title screen</button></div>
+</section>
+</div>
+<script>
+"use strict";
+// [country, flag, [[emoji, dish, description], ...]]
+const DATA=[
+["France","🇫🇷",[["🍷","Coq au vin","chicken slowly braised in red wine with mushrooms and lardons"],["🥐","Croissant","flaky, buttery crescent-shaped pastry"],["🥘","Ratatouille","stewed summer vegetables from Provence"]]],
+["Italy","🇮🇹",[["🍕","Pizza Margherita","tomato, mozzarella and basil on a thin crust from Naples"],["🍝","Spaghetti carbonara","pasta with egg, pecorino, guanciale and black pepper"],["🍚","Risotto alla milanese","creamy saffron rice from Milan"]]],
+["Japan","🇯🇵",[["🍣","Sushi","vinegared rice topped with raw fish"],["🍜","Ramen","wheat noodles in a rich broth"],["🍤","Tempura","seafood and vegetables in a light, crispy batter"]]],
+["Egypt","🇪🇬",[["🍛","Koshari","rice, lentils and macaroni topped with spicy tomato sauce and fried onions"],["🫘","Ful medames","slow-cooked fava beans with oil, cumin and lemon"],["🧆","Ta'ameya","falafel made from fava beans"]]],
+["Brazil","🇧🇷",[["🫘","Feijoada","black bean and pork stew served with rice and farofa"],["🧀","Pão de queijo","chewy cheese bread rolls made with cassava flour"],["🍫","Brigadeiro","chocolate truffle rolled in sprinkles"]]],
+["India","🇮🇳",[["🥞","Masala dosa","crispy fermented rice crêpe filled with spiced potato"],["🍛","Biryani","layered spiced rice with meat or vegetables"],["🍗","Butter chicken","chicken in a creamy tomato sauce, from Delhi"]]],
+["China","🇨🇳",[["🦆","Peking duck","roast duck with crisp skin, wrapped in thin pancakes"],["🥟","Xiaolongbao","soup-filled steamed dumplings"],["🌶️","Mapo tofu","tofu in a fiery Sichuan peppercorn sauce"]]],
+["Mexico","🇲🇽",[["🌮","Tacos al pastor","spit-roasted pork with pineapple on corn tortillas"],["🍫","Mole poblano","rich sauce of chiles, spices and chocolate"],["🫔","Tamales","corn dough steamed in corn husks"]]],
+["Peru","🇵🇪",[["🐟","Ceviche","raw fish cured in lime juice with chili and red onion"],["🥩","Lomo saltado","stir-fried beef with onions, tomatoes and fries"],["🥔","Causa","layered chilled mashed yellow potato terrine"]]],
+["United States","🇺🇸",[["🍔","Hamburger","ground beef patty in a bun"],["🥧","Apple pie","double-crusted pie of spiced apples"],["🍗","Southern fried chicken","buttermilk-battered deep-fried chicken"]]],
+["Canada","🇨🇦",[["🍟","Poutine","fries topped with cheese curds and gravy, from Quebec"],["🥧","Butter tarts","small pastry tarts with a gooey syrup filling"],["🥓","Peameal bacon","cornmeal-crusted back bacon from Toronto"]]],
+["United Kingdom","🇬🇧",[["🐟","Fish and chips","battered fried fish with thick-cut chips"],["🥩","Sunday roast","roast beef with Yorkshire pudding and gravy"],["🍳","Full breakfast","eggs, bacon, sausages, beans and toast"]]],
+["Spain","🇪🇸",[["🥘","Paella","saffron rice with seafood or chicken, from Valencia"],["🥔","Tortilla de patatas","thick potato and egg omelette"],["🍅","Gazpacho","chilled tomato and vegetable soup from Andalusia"]]],
+["Germany","🇩🇪",[["🌭","Bratwurst","grilled pork sausage served with mustard"],["🥨","Brezel","soft, salty twisted pretzel from Bavaria"],["🥬","Sauerbraten","pot roast marinated in vinegar"]]],
+["Greece","🇬🇷",[["🍆","Moussaka","layered aubergine, spiced meat and béchamel"],["🥙","Souvlaki","grilled meat skewers served in pita"],["🥗","Horiatiki","village salad with tomato, cucumber, olives and feta"]]],
+["Turkey","🇹🇷",[["🥙","Döner kebab","meat roasted on a vertical spit, sliced thin"],["🍯","Baklava","pistachio pastry layers soaked in syrup"],["🍕","Lahmacun","thin flatbread topped with spiced minced meat"]]],
+["Russia","🇷🇺",[["🥟","Pelmeni","small meat-filled dumplings served with sour cream"],["🥞","Blini","thin pancakes often topped with caviar"],["🥣","Borscht","beetroot soup with sour cream"]]],
+["Netherlands","🇳🇱",[["🧇","Stroopwafel","two thin waffles glued with caramel syrup"],["🥔","Stamppot","mashed potatoes with kale and smoked sausage"],["🐟","Haring","raw herring eaten with onions"]]],
+["Switzerland","🇨🇭",[["🫕","Cheese fondue","melted cheese and wine for dipping bread"],["🧀","Raclette","melted cheese scraped over potatoes"],["🥔","Rösti","crispy grated potato cake"]]],
+["Sweden","🇸🇪",[["🧆","Köttbullar","meatballs with lingonberry jam and cream sauce"],["🥐","Kanelbulle","cardamom-scented cinnamon bun"],["🐟","Gravlax","salmon cured with salt, sugar and dill"]]],
+["Portugal","🇵🇹",[["🥧","Pastel de nata","custard tart with a blistered top"],["🐟","Bacalhau à Brás","salt cod with eggs and shoestring potatoes"],["🥪","Francesinha","meat-filled sandwich in beer sauce, from Porto"]]],
+["Morocco","🇲🇦",[["🍲","Tagine","slow-cooked stew in a cone-lidded clay pot"],["🍚","Couscous","steamed semolina with vegetables and meat"],["🥧","Pastilla","sweet-savoury pigeon or chicken pie dusted with sugar"]]],
+["Nigeria","🇳🇬",[["🍚","Jollof rice","rice cooked in a spicy tomato and pepper sauce"],["🍲","Egusi soup","melon-seed soup with leafy greens"],["🍢","Suya","spicy peanut-crusted grilled meat skewers"]]],
+["Ethiopia","🇪🇹",[["🫓","Injera with doro wat","spongy teff flatbread with spicy chicken stew"],["🥩","Kitfo","minced raw beef with spiced butter"],["🫘","Shiro","chickpea flour stew"]]],
+["Thailand","🇹🇭",[["🍜","Pad thai","stir-fried rice noodles with tamarind, peanuts and egg"],["🍲","Tom yum","hot and sour lemongrass soup with shrimp"],["🥭","Mango sticky rice","sweet coconut sticky rice with ripe mango"]]],
+["Vietnam","🇻🇳",[["🍜","Phở","rice noodle soup with beef and herbs"],["🥖","Bánh mì","baguette sandwich with pâté and pickled vegetables"],["🥢","Bún chả","grilled pork with rice noodles, from Hanoi"]]],
+["South Korea","🇰🇷",[["🥬","Kimchi","spicy fermented napa cabbage"],["🍚","Bibimbap","rice bowl with vegetables, egg and chili paste"],["🍖","Bulgogi","marinated grilled beef"]]],
+["Indonesia","🇮🇩",[["🍳","Nasi goreng","sweet-soy fried rice topped with a fried egg"],["🍛","Rendang","beef slow-cooked in coconut and spices"],["🍢","Satay","grilled skewers with peanut sauce"]]],
+["Philippines","🇵🇭",[["🍗","Adobo","chicken or pork braised in vinegar, soy and garlic"],["🐖","Lechón","whole roasted pig with crackling skin"],["🍧","Halo-halo","shaved ice dessert with ube and sweet beans"]]],
+["Argentina","🇦🇷",[["🥩","Asado","beef grilled slowly over wood embers"],["🥟","Empanadas","baked turnovers filled with spiced meat"],["🍮","Dulce de leche","thick caramelised milk spread"]]],
+["Cuba","🇨🇺",[["🥩","Ropa vieja","shredded beef stewed with peppers and tomato"],["🥪","Sándwich cubano","pressed ham, roast pork and pickle sandwich"],["🫘","Moros y cristianos","black beans cooked with rice"]]],
+["Jamaica","🇯🇲",[["🍗","Jerk chicken","chicken in fiery Scotch bonnet and allspice marinade"],["🐟","Ackee and saltfish","ackee fruit sautéed with salt cod"],["🥟","Beef patty","flaky turmeric pastry filled with spiced beef"]]],
+["Austria","🇦🇹",[["🥩","Wiener Schnitzel","breaded, pan-fried veal cutlet"],["🥧","Apfelstrudel","thin pastry rolled around spiced apples"],["🍰","Sachertorte","chocolate cake with apricot jam"]]],
+["Belgium","🇧🇪",[["🦪","Moules-frites","steamed mussels with fries"],["🧇","Liège waffle","dense pearl-sugar waffle"],["🍲","Carbonnade flamande","beef stewed in beer"]]],
+["Poland","🇵🇱",[["🥟","Pierogi","dumplings filled with potato, cheese or cabbage"],["🍲","Bigos","hunter's stew of sauerkraut and meats"],["🍩","Pączki","jam-filled doughnuts"]]],
+["Hungary","🇭🇺",[["🍲","Gulyás (goulash)","paprika beef soup"],["🍗","Chicken paprikash","chicken in creamy paprika sauce"],["🥖","Lángos","deep-fried dough with sour cream and cheese"]]],
+["Lebanon","🇱🇧",[["🥗","Tabbouleh","parsley and bulgur salad with lemon"],["🧆","Kibbeh","fried shells of bulgur and spiced minced lamb"],["🫓","Man'oushe","flatbread topped with za'atar and olive oil"]]],
+["Iran","🇮🇷",[["🍚","Tahdig","crispy golden rice from the bottom of the pot"],["🍲","Ghormeh sabzi","herb stew with kidney beans and lamb"],["🍢","Chelow kabab","grilled kebab with saffron rice"]]],
+["Georgia","🇬🇪",[["🧀","Khachapuri","boat-shaped cheese bread topped with egg"],["🥟","Khinkali","twisted soup dumplings"],["🍬","Churchkhela","walnuts strung and dipped in grape-juice jelly"]]],
+["Australia","🇦🇺",[["🍞","Vegemite on toast","yeast-extract spread on buttered toast"],["🥧","Meat pie","hand-sized pie of minced meat and gravy"],["🍰","Lamington","sponge cake in chocolate and coconut"]]],
+["New Zealand","🇳🇿",[["🔥","Hāngī","Māori feast cooked in an earth oven"],["🍰","Pavlova","meringue topped with cream and kiwifruit"],["🍦","Hokey pokey ice cream","vanilla ice cream with honeycomb toffee"]]],
+["Colombia","🇨🇴",[["🍳","Bandeja paisa","platter of beans, rice, chicharrón, egg and plantain"],["🫓","Arepa","grilled corn cake"],["🍲","Ajiaco","chicken and three-potato soup from Bogotá"]]],
+["Venezuela","🇻🇪",[["🍛","Pabellón criollo","shredded beef, black beans, rice and plantains"],["🫓","Arepa reina pepiada","corn cake stuffed with chicken-avocado salad"],["🥟","Tequeños","fried cheese sticks in dough"]]],
+["Chile","🇨🇱",[["🥟","Empanada de pino","baked turnover of beef, onion, egg and olive"],["🌽","Pastel de choclo","beef and corn casserole"],["🍲","Cazuela","hearty meat and vegetable soup"]]],
+["Ireland","🇮🇪",[["🍲","Irish stew","lamb, potato and onion stew"],["🥔","Colcannon","mashed potato with cabbage or kale"],["🍞","Soda bread","quick bread made with buttermilk"]]],
+["Denmark","🇩🇰",[["🥪","Smørrebrød","open-faced rye sandwiches"],["🥐","Wienerbrød","the original 'Danish' pastry"],["🐖","Stegt flæsk","crispy pork belly with parsley sauce"]]],
+["Czechia","🇨🇿",[["🥩","Svíčková","beef sirloin in cream sauce with dumplings"],["🥟","Knedlíky","bread dumplings"],["🍩","Trdelník","sugar-coated spit-roasted pastry"]]],
+["Kenya","🇰🇪",[["🫓","Ugali","stiff maize porridge eaten by hand"],["🍖","Nyama choma","grilled meat, often goat"],["🥬","Sukuma wiki","sautéed collard greens"]]],
+["South Africa","🇿🇦",[["🥘","Bobotie","spiced minced meat baked with an egg topping"],["🍞","Bunny chow","hollowed bread loaf filled with curry, from Durban"],["🥩","Biltong","air-dried cured meat"]]],
+["Malaysia","🇲🇾",[["🍚","Nasi lemak","coconut rice with sambal, anchovies and peanuts"],["🍜","Laksa","spicy coconut noodle soup"],["🫓","Roti canai","flaky flatbread with curry"]]],
+["Ukraine","🇺🇦",[["🥣","Borshch with pampushky","beet soup with garlic buns"],["🥟","Varenyky","dumplings with potato or cherries"],["🍗","Chicken Kyiv","breaded chicken filled with herb butter"]]]];
+const C=DATA.map(([name,flag,dishes])=>({name,flag,dishes}));
+const TYPES=[{k:"food",l:"🍽️ Popular food",f:c=>c.dish?`${c.dish[0]} ${c.dish[1]} — ${c.dish[2]}`:""}];
+const ROUND=10, $=id=>document.getElementById(id);
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;};
+function buildRound(){
+  return shuffle(C).slice(0,ROUND).map((c0,i)=>{
+    const c=Object.assign({},c0,{dish:c0.dishes[Math.random()*c0.dishes.length|0]}),t=TYPES[0];
+    const opts=shuffle([c,...shuffle(C.filter(o=>o.name!==c.name)).slice(0,3)]).map(o=>o.name);
+    return {c,t,opts};});
+}
+let S={mode:"solo",teamsN:2,teamNames:["Team Explorers","Team Voyagers","Team Nomads","Team Pilots","Team Sailors","Team Rovers"]};
+let R,tick=null;
+function show(id){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id===id));}
+function best(){return +(localStorage.getItem("worldGuessBest")||0);}
+function renderTitle(){
+  $("mSolo").classList.toggle("primary",S.mode==="solo");$("mGroup").classList.toggle("primary",S.mode==="group");
+  $("groupCfg").style.display=S.mode==="group"?"block":"none";$("tCount").textContent=S.teamsN;
+  const box=$("teamInputs");box.innerHTML="";
+  for(let i=0;i<S.teamsN;i++){const inp=document.createElement("input");inp.value=S.teamNames[i];inp.maxLength=24;inp.setAttribute("aria-label","Team "+(i+1)+" name");
+    inp.oninput=()=>S.teamNames[i]=inp.value;box.appendChild(inp);}
+  $("bestLbl").textContent="🏅 Solo best score: "+best()+" / "+ROUND;
+}
+$("mSolo").onclick=()=>{S.mode="solo";renderTitle();};$("mGroup").onclick=()=>{S.mode="group";renderTitle();};
+$("tMinus").onclick=()=>{S.teamsN=Math.max(2,S.teamsN-1);renderTitle();};$("tPlus").onclick=()=>{S.teamsN=Math.min(6,S.teamsN+1);renderTitle();};
+function start(){
+  const sec=Math.max(5,Math.min(120,parseInt($("tSec").value)||15));$("tSec").value=sec;
+  const teams=S.mode==="group"?S.teamNames.slice(0,S.teamsN).map((n,i)=>({name:n.trim()||("Team "+(i+1)),score:0})):[];
+  R={qs:buildRound(),i:0,score:0,streak:0,bestStreak:0,sec,teams,style:$("gStyle").value,turn:0,answered:false};
+  show("sGame");ask();
+}
+$("startBtn").onclick=start;$("replayBtn").onclick=start;$("menuBtn").onclick=()=>{renderTitle();show("sTitle");};
+function renderHud(){
+  $("qNum").textContent="✈️ Stop "+(R.i+1)+" / "+ROUND;
+  $("prog").style.width=(R.i/ROUND*100)+"%";
+  if(S.mode==="solo"){$("scoreLbl").textContent="Score "+R.score+" · 🔥 Streak "+R.streak;$("board").innerHTML="";$("turnLbl").textContent="";}
+  else{$("scoreLbl").textContent="";
+    $("board").innerHTML=R.teams.map((t,i)=>`<span class="team${R.style==="turns"&&i===R.turn?" cur":""}">${esc(t.name)}: ${t.score}</span>`).join("");
+    $("turnLbl").textContent=R.style==="turns"?"🎟️ "+R.teams[R.turn].name+", it's your turn!":"🙋 Shout it out — host picks the winner";}
+}
+function esc(s){return String(s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
+function ask(){
+  const q=R.qs[R.i];R.answered=false;R.turn=R.i%(R.teams.length||1);renderHud();
+  $("clueType").textContent=q.t.l;const cl=$("clue");cl.textContent=q.t.f(q.c);cl.className="clue"+(q.t.k==="flag"?" flag":"");
+  $("feedback").innerHTML="";$("nextBtn").style.display="none";$("hostBox").style.display="none";
+  const o=$("opts");o.innerHTML="";
+  q.opts.forEach((name,k)=>{const b=document.createElement("button");b.textContent=String.fromCharCode(65+k)+". "+name;
+    b.onclick=()=>answer(name);o.appendChild(b);});
+  let left=R.sec;const tm=$("timer");tm.textContent=left;tm.classList.remove("low");
+  clearInterval(tick);tick=setInterval(()=>{left--;tm.textContent=Math.max(0,left);tm.classList.toggle("low",left<=5);if(left<=0)answer(null);},1000);
+}
+function answer(name){
+  if(R.answered)return;R.answered=true;clearInterval(tick);
+  const q=R.qs[R.i],ok=name===q.c.name,host=S.mode==="group"&&R.style==="host";
+  [...$("opts").children].forEach(b=>{const n=b.textContent.slice(3);b.disabled=true;
+    if(n===q.c.name)b.classList.add("ok");else if(n===name&&!host)b.classList.add("bad");});
+  const reveal=` It's <b>${q.c.flag} ${esc(q.c.name)}</b>.`;
+  if(host){
+    $("feedback").innerHTML=(name===null?"⏰ Time's up!":"")+reveal+" Which team got it?";
+    const hb=$("hostBox");hb.innerHTML="";hb.style.display="flex";
+    R.teams.forEach(t=>{const b=document.createElement("button");b.textContent="✅ "+t.name;b.onclick=()=>{t.score++;finishQ();};hb.appendChild(b);});
+    const nb=document.createElement("button");nb.textContent="❌ Nobody";nb.onclick=finishQ;hb.appendChild(nb);
+    return;}
+  let msg;
+  if(name===null)msg=`<span class="stamp" style="color:var(--bad)">⏰ Time's up</span>`;
+  else msg=ok?`<span class="stamp" style="color:var(--ok)">✔ Correct</span>`:`<span class="stamp" style="color:var(--bad)">✘ Wrong</span>`;
+  if(S.mode==="solo"){if(ok){R.score++;R.streak++;R.bestStreak=Math.max(R.bestStreak,R.streak);}else R.streak=0;}
+  else if(ok)R.teams[R.turn].score++;
+  $("feedback").innerHTML=msg+reveal;finishQ(true);
+}
+function finishQ(keepFeedback){
+  $("hostBox").style.display="none";renderHud();
+  const nb=$("nextBtn");nb.textContent=R.i+1>=ROUND?"🏁 See results":"Next destination ➜";nb.style.display="inline-block";nb.focus();
+}
+$("nextBtn").onclick=()=>{R.i++;if(R.i>=ROUND)end();else ask();};
+function end(){
+  clearInterval(tick);$("prog").style.width="100%";show("sEnd");let h;
+  if(S.mode==="solo"){const prev=best(),nb=R.score>prev;if(nb)localStorage.setItem("worldGuessBest",R.score);
+    $("endTitle").textContent=R.score>=8?"🌟 Globetrotter!":R.score>=5?"🧭 Seasoned traveller!":"🎒 Keep exploring!";
+    h=`<h2>You scored ${R.score} / ${ROUND}</h2><p>🔥 Best streak this trip: ${R.bestStreak}</p><p>${nb?"🏅 New best score!":"🏅 Best score: "+Math.max(prev,R.score)}</p>`;}
+  else{const top=Math.max(...R.teams.map(t=>t.score)),w=R.teams.filter(t=>t.score===top);
+    $("endTitle").textContent=w.length>1?"🤝 It's a tie!":"🏆 "+w[0].name+" wins!";
+    h=`<h2>${w.length>1?"Winners: "+w.map(t=>esc(t.name)).join(" & "):"Champion travellers"}</h2>`+
+      `<div class="board" style="flex-direction:column;align-items:center">`+R.teams.slice().sort((a,b)=>b.score-a.score)
+      .map((t,i)=>`<span class="team${t.score===top?" cur":""}">${["🥇","🥈","🥉"][i]||"🎫"} ${esc(t.name)} — ${t.score}</span>`).join("")+`</div>`;}
+  $("endBody").innerHTML=h;
+}
+$("fsBtn").onclick=()=>{if(!document.fullscreenElement)(document.documentElement.requestFullscreen?.()||Promise.resolve()).catch(()=>{});else document.exitFullscreen();};
+document.addEventListener("keydown",e=>{if(!$("sGame").classList.contains("on"))return;const k="abcd".indexOf(e.key.toLowerCase());
+  const bs=[...$("opts").children];if(k>=0&&bs[k]&&!bs[k].disabled)bs[k].click();});
+renderTitle();
+if(typeof window!=="undefined")window.__WG={C,buildRound,get R(){return R;},start,answer};
+</script></body></html>
